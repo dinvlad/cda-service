@@ -11,6 +11,7 @@ import bio.terra.cda.generated.model.QueryResponseData;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
@@ -117,6 +118,35 @@ public class QueryApiController implements QueryApi {
     String querySql =
         "SELECT DISTINCT " + nt.getColumn() + " FROM " + table + unnestConcat + whereClause;
     logger.debug("uniqueValues: " + querySql);
+
+    return sendQuery(querySql, false);
+  }
+
+  @Override
+  public ResponseEntity<QueryCreatedData> files(
+      String version, List<String> patientIds, Boolean gdc, Boolean pdc, Boolean idc) {
+    StringBuffer patientList = new StringBuffer();
+    patientList.append(" id in (");
+    for (String patientId : patientIds) {
+      patientList.append("'" + patientId + "',");
+    }
+    patientList.append(")");
+    String whereClause = patientList.toString();
+    whereClause.replace(",)", ")");
+    String querySql =
+        "SELECT * FROM ( "
+            + "SELECT COALESCE(t1.id, t2.id) as ID, "
+            + "t1.ResearchSubject, "
+            + "ARRAY_CONCAT("
+            + "IFNULL(t1.File, []), "
+            + "IFNULL(t2.File, []) "
+            + ") as File "
+            + "FROM `gdc-bq-sample.R2_practice_kit.gdc_pdc_v2` t1 "
+            + "FULL OUTER JOIN `gdc-bq-sample.R2_practice_kit.idc_v4` t2 ON t1.id = t2.id) "
+            + "WHERE ID IN ('C70971', 'C3N-01900', 'C3L-00961')";
+    String querySql2 =
+        "SELECT id, File FROM `gdc-bq-sample.R2_practice_kit.gdc_pdc_v2` WHERE  id in ('TARGET-10-PARLIT','C3N-01900', 'C3L-00961')";
+    logger.debug("****** patientIDs: " + querySql + " *****");
 
     return sendQuery(querySql, false);
   }
