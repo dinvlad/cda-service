@@ -125,14 +125,7 @@ public class QueryApiController implements QueryApi {
   @Override
   public ResponseEntity<QueryCreatedData> files(
       String version, List<String> patientIds, Boolean gdc, Boolean pdc, Boolean idc) {
-    StringBuffer patientList = new StringBuffer();
-    patientList.append(" id in (");
-    for (String patientId : patientIds) {
-      patientList.append("'" + patientId + "',");
-    }
-    patientList.append(")");
-    String whereClause = patientList.toString();
-    whereClause.replace(",)", ")");
+
     String querySql =
         "SELECT * FROM ( "
             + "SELECT COALESCE(t1.id, t2.id) as ID, "
@@ -143,11 +136,27 @@ public class QueryApiController implements QueryApi {
             + ") as File "
             + "FROM `gdc-bq-sample.R2_practice_kit.gdc_pdc_v2` t1 "
             + "FULL OUTER JOIN `gdc-bq-sample.R2_practice_kit.idc_v4` t2 ON t1.id = t2.id) "
-            + "WHERE ID IN ('C70971', 'C3N-01900', 'C3L-00961')";
-    String querySql2 =
-        "SELECT id, File FROM `gdc-bq-sample.R2_practice_kit.gdc_pdc_v2` WHERE  id in ('TARGET-10-PARLIT','C3N-01900', 'C3L-00961')";
+            + patientWhereClause(patientIds);
+
     logger.debug("****** patientIDs: " + querySql + " *****");
 
     return sendQuery(querySql, false);
+  }
+
+  private String patientWhereClause(List<String> patientIds) {
+    StringBuffer patientList = new StringBuffer();
+    patientList.append(" (");
+    int index = 1;
+    for (String patientId : patientIds) {
+      patientList.append("'" + patientId + "'");
+      if (index++ < patientIds.size()) {
+        patientList.append(",");
+      }
+    }
+    patientList.append(")");
+    String whereClause = patientList.toString();
+    whereClause.replace(",)", ")");
+    logger.debug("****** patientWhere: " + whereClause.toString());
+    return "WHERE ID IN " + whereClause.toString();
   }
 }
